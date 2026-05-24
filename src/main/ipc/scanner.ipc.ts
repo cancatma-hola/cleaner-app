@@ -34,11 +34,23 @@ export function registerScannerIpc(win: BrowserWindow): void {
         const unused = scannedFiles.filter((f) => now - f.lastAccessed > thresholdMs)
         const large = scannedFiles.filter((f) => f.size > largeSizeBytes)
 
+        // Only hash files that share the same size (potential duplicates) — skip unique sizes
+        const sizeCount = new Map<number, number>()
+        for (const f of scannedFiles) sizeCount.set(f.size, (sizeCount.get(f.size) ?? 0) + 1)
+        const hashCandidates = scannedFiles.filter((f) => f.size > 0 && (sizeCount.get(f.size) ?? 0) > 1)
+
+        // Only run image hash on image files
+        const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.bmp'])
+        const imageCandidates = scannedFiles.filter((f) => {
+          const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+          return IMAGE_EXTS.has(ext)
+        })
+
         win.webContents.send('scan:progress', { phase: 'hashing' })
-        const hashResult = await runHashWorker(scannedFiles)
+        const hashResult = await runHashWorker(hashCandidates)
 
         win.webContents.send('scan:progress', { phase: 'image-hashing' })
-        const imageResult = await runImageHashWorker(scannedFiles)
+        const imageResult = await runImageHashWorker(imageCandidates)
 
         const result: ScanResult = {
           unused,
