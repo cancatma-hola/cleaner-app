@@ -11,7 +11,7 @@ export function registerScannerIpc(win: BrowserWindow): void {
     if (scannerPool) scannerPool.terminateAll()
 
     scannerPool = new WorkerPool(
-      join(__dirname, '../../workers/file-scanner.worker.js'),
+      join(__dirname, 'file-scanner.worker.js'),
       4,
     )
 
@@ -69,7 +69,7 @@ export function registerScannerIpc(win: BrowserWindow): void {
 
 function runHashWorker(files: ScannedFile[]): Promise<{ groups: DuplicateGroup[] }> {
   return new Promise((resolve) => {
-    const pool = new WorkerPool(join(__dirname, '../../workers/hash.worker.js'), 2)
+    const pool = new WorkerPool(join(__dirname, 'hash.worker.js'), 2)
     let groups: DuplicateGroup[] = []
     pool.on('message', (msg) => { if (msg.type === 'result') groups = msg.groups })
     pool.on('done', () => resolve({ groups }))
@@ -79,7 +79,7 @@ function runHashWorker(files: ScannedFile[]): Promise<{ groups: DuplicateGroup[]
 
 function runImageHashWorker(files: ScannedFile[]): Promise<{ groups: SimilarGroup[] }> {
   return new Promise((resolve) => {
-    const pool = new WorkerPool(join(__dirname, '../../workers/image-hash.worker.js'), 2)
+    const pool = new WorkerPool(join(__dirname, 'image-hash.worker.js'), 2)
     let groups: SimilarGroup[] = []
     pool.on('message', (msg) => { if (msg.type === 'result') groups = msg.groups })
     pool.on('done', () => resolve({ groups }))
