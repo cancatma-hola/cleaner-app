@@ -1,12 +1,8 @@
 // src/renderer/src/components/ActionBar.tsx
+import { formatBytes } from '../utils/format'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 interface ActionBarProps {
   files: { path: string; size: number }[]

@@ -7,6 +7,8 @@ export function Settings() {
   const { settings, setSettings } = useAppStore()
   const [local, setLocal] = useState<AppSettings>(settings)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [newPath, setNewPath] = useState('')
 
   const update = (patch: Partial<AppSettings>) =>
     setLocal((prev) => ({ ...prev, ...patch }))
@@ -14,11 +16,24 @@ export function Settings() {
   const updateScanConfig = (patch: Partial<AppSettings['scanConfig']>) =>
     update({ scanConfig: { ...local.scanConfig, ...patch } })
 
+  const addPath = () => {
+    const val = newPath.trim()
+    if (val && val.startsWith('/') && !local.scanConfig.paths.includes(val)) {
+      updateScanConfig({ paths: [...local.scanConfig.paths, val] })
+      setNewPath('')
+    }
+  }
+
   const save = async () => {
-    await window.cleaner.saveSettings(local)
-    setSettings(local)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      await window.cleaner.saveSettings(local)
+      setSettings(local)
+      setSaved(true)
+      setSaveError(null)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Kayıt başarısız')
+    }
   }
 
   return (
@@ -46,16 +61,10 @@ export function Settings() {
           <div className="flex gap-2">
             <input
               type="text"
+              value={newPath}
+              onChange={(e) => setNewPath(e.target.value)}
               placeholder="/Users/kullanici/Documents"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = (e.target as HTMLInputElement).value.trim()
-                  if (val) {
-                    updateScanConfig({ paths: [...local.scanConfig.paths, val] });
-                    (e.target as HTMLInputElement).value = ''
-                  }
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') addPath() }}
               className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-white rounded px-3 py-1.5 outline-none focus:border-blue-500"
             />
           </div>
@@ -175,14 +184,19 @@ export function Settings() {
         </div>
       </section>
 
-      <button
-        onClick={save}
-        className={`px-4 py-2 rounded text-[12px] font-semibold transition ${
-          saved ? 'bg-emerald-600 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'
-        }`}
-      >
-        {saved ? '✓ Kaydedildi' : 'Kaydet'}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={save}
+          className={`px-4 py-2 rounded text-[12px] font-semibold transition ${
+            saved ? 'bg-emerald-600 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'
+          }`}
+        >
+          {saved ? '✓ Kaydedildi' : 'Kaydet'}
+        </button>
+        {saveError && (
+          <span className="text-[11px] text-red-400">{saveError}</span>
+        )}
+      </div>
     </div>
   )
 }

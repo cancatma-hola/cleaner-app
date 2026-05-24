@@ -1,4 +1,5 @@
 // src/renderer/src/pages/UnusedFiles.tsx
+import { formatBytes } from '../utils/format'
 import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
@@ -9,11 +10,6 @@ import type { ScannedFile } from '../types'
 const DAYS_FILTERS = [30, 90, 180, 365] as const
 const CATEGORIES = ['download', 'screenshot', 'backup', 'document', 'video', 'other'] as const
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 export function UnusedFiles() {
   const { scanResult, selectedPaths, toggleSelect } = useAppStore()

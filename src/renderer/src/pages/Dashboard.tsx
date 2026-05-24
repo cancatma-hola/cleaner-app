@@ -1,14 +1,10 @@
 // src/renderer/src/pages/Dashboard.tsx
+import { formatBytes } from '../utils/format'
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useScan } from '../hooks/useScan'
 import type { DiskInfo } from '../types'
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 const CATEGORY_COLORS: Record<string, string> = {
   document: '#3b82f6',

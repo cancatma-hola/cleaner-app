@@ -23,7 +23,8 @@ function updateSchedule(settings: AppSettings): void {
   const cron = settings.scheduleFrequency === 'weekly' ? '0 9 * * 1' : '0 9 1 * *'
 
   job = schedule.scheduleJob(cron, () => {
-    if (settings.notificationsEnabled) {
+    const current = store.get('settings') as AppSettings
+    if (current.notificationsEnabled) {
       new Notification({
         title: 'CLEANER',
         body: 'Zamanlanmış tarama tamamlandı — uygulamayı açarak sonuçları görün.',

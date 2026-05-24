@@ -18,6 +18,9 @@ export function useTrash() {
         duplicates: scanResult.duplicates
           .map((g) => ({ ...g, files: g.files.filter((f) => !removed.has(f.path)) }))
           .filter((g) => g.files.length > 1),
+        similarImages: scanResult.similarImages
+          .map((g) => ({ ...g, files: g.files.filter((f) => !removed.has(f.path)) }))
+          .filter((g) => g.files.length > 0),
       })
     }
     return { failed: Array.from(failed) }

@@ -1,13 +1,9 @@
 // src/renderer/src/pages/Duplicates.tsx
+import { formatBytes } from '../utils/format'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
 import type { DuplicateGroup } from '../types'
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 export function Duplicates() {
   const { scanResult, selectedPaths, toggleSelect } = useAppStore()

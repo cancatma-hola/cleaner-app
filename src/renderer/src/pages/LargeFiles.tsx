@@ -1,4 +1,5 @@
 // src/renderer/src/pages/LargeFiles.tsx
+import { formatBytes } from '../utils/format'
 import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
@@ -6,11 +7,6 @@ import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 export function LargeFiles() {
   const { scanResult, selectedPaths, toggleSelect } = useAppStore()

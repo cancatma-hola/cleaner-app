@@ -1,11 +1,7 @@
 // src/renderer/src/components/PreviewPanel.tsx
+import { formatBytes } from '../utils/format'
 import type { ScannedFile } from '../types'
 
-function formatBytes(b: number) {
-  if (b > 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b > 1e6) return `${(b / 1e6).toFixed(0)} MB`
-  return `${Math.round(b / 1e3)} KB`
-}
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.bmp'])
 
