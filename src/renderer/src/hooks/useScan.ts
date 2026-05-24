@@ -4,20 +4,20 @@ import { useAppStore } from '../store/app.store'
 import type { ScanConfig, ScanProgress } from '../types'
 
 export function useScan() {
-  const { setScanning, setScanResult, setScanProgress, settings } = useAppStore()
+  const { setScanning, setScanResult, setScanProgress } = useAppStore()
 
   useEffect(() => {
-    const unsubscribe = window.cleaner.onProgress((p: unknown) => {
+    window.cleaner.onProgress((p: unknown) => {
       setScanProgress(p as ScanProgress)
     })
-    return () => { unsubscribe?.() }
+    return () => { window.cleaner.offProgress() }
   }, [setScanProgress])
 
   const startScan = async (config?: ScanConfig) => {
     setScanning(true)
     setScanProgress({ scanned: 0, total: 0, currentPath: '', phase: 'scanning' })
     try {
-      const result = await window.cleaner.startScan(config ?? settings.scanConfig)
+      const result = await window.cleaner.startScan(config ?? useAppStore.getState().settings.scanConfig)
       setScanResult(result)
     } finally {
       setScanning(false)

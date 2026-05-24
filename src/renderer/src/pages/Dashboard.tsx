@@ -73,15 +73,53 @@ export function Dashboard() {
       {/* Scan progress */}
       {isScanning && scanProgress && (
         <div className="bg-[#111] border border-[#1e3a5f] rounded-lg p-4 mb-6">
-          <div className="text-[11px] text-blue-400 mb-1">
-            {scanProgress.phase === 'scanning' && `Taranıyor... ${scanProgress.scanned} dosya`}
-            {scanProgress.phase === 'hashing' && 'Hash hesaplanıyor...'}
-            {scanProgress.phase === 'image-hashing' && 'Benzer resimler aranıyor...'}
-            {scanProgress.phase === 'done' && 'Tamamlandı!'}
-          </div>
-          {scanProgress.currentPath && (
-            <div className="text-[9px] text-[#555] truncate">{scanProgress.currentPath}</div>
-          )}
+          {(() => {
+            const { phase, scanned, hashed, hashTotal, imageHashed, imageHashTotal } = scanProgress
+            let label = ''
+            let sub = ''
+            let pct = 0
+            let indeterminate = false
+
+            if (phase === 'scanning') {
+              indeterminate = true
+              label = `Dosyalar taranıyor — ${scanned.toLocaleString('tr-TR')} dosya`
+              sub = scanProgress.currentPath || ''
+            } else if (phase === 'hashing') {
+              const t = hashTotal ?? 0
+              pct = t > 0 ? Math.min(100, Math.round(((hashed ?? 0) / t) * 100)) : 0
+              label = `Hash hesaplanıyor — ${(hashed ?? 0).toLocaleString('tr-TR')} / ${t.toLocaleString('tr-TR')} dosya`
+              sub = 'Yinelenen dosyalar için SHA-1 karşılaştırması yapılıyor'
+            } else if (phase === 'image-hashing') {
+              const t = imageHashTotal ?? 0
+              if (t === 0) { indeterminate = true; pct = 0 }
+              else pct = Math.min(100, Math.round(((imageHashed ?? 0) / t) * 100))
+              label = `Benzer resimler aranıyor — ${(imageHashed ?? 0).toLocaleString('tr-TR')} / ${t > 0 ? t.toLocaleString('tr-TR') : '?'} resim`
+              sub = 'Algısal hash (perceptual hash) ile karşılaştırılıyor'
+            } else {
+              pct = 100
+              label = 'Tamamlandı!'
+            }
+
+            return (
+              <>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-blue-400 font-medium">{label}</span>
+                  {!indeterminate && pct > 0 && <span className="text-[11px] text-blue-300 font-semibold tabular-nums">{pct}%</span>}
+                </div>
+                <div className="h-1.5 rounded-full bg-[#1e1e1e] overflow-hidden mb-1.5">
+                  {indeterminate ? (
+                    <div className="h-full w-1/3 bg-blue-500 rounded-full animate-pulse" />
+                  ) : (
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  )}
+                </div>
+                {sub && <div className="text-[9px] text-[#444] truncate">{sub}</div>}
+              </>
+            )
+          })()}
         </div>
       )}
 

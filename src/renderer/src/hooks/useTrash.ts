@@ -1,29 +1,53 @@
 // src/renderer/src/hooks/useTrash.ts
 import { useAppStore } from '../store/app.store'
 
+const BATCH_SIZE = 20
+
 export function useTrash() {
-  const { selectedPaths, clearSelection, scanResult, setScanResult } = useAppStore()
+  const { selectedPaths, clearSelection, setTrashProgress } = useAppStore()
 
   const trashPaths = async (paths: string[]) => {
     if (paths.length === 0) return { failed: [] }
-    const results = await window.cleaner.trashFiles(paths)
-    const failed = new Set(results.filter((r: { success: boolean }) => !r.success).map((r: { path: string }) => r.path))
-    const removed = new Set(paths.filter((p) => !failed.has(p)))
 
-    if (scanResult) {
-      setScanResult({
-        ...scanResult,
-        unused: scanResult.unused.filter((f) => !removed.has(f.path)),
-        large: scanResult.large.filter((f) => !removed.has(f.path)),
-        duplicates: scanResult.duplicates
-          .map((g) => ({ ...g, files: g.files.filter((f) => !removed.has(f.path)) }))
-          .filter((g) => g.files.length > 1),
-        similarImages: scanResult.similarImages
-          .map((g) => ({ ...g, files: g.files.filter((f) => !removed.has(f.path)) }))
-          .filter((g) => g.files.length > 0),
-      })
+    const total = paths.length
+    let done = 0
+    let failedCount = 0
+    const failedPaths = new Set<string>()
+    const succeededPaths: string[] = []
+
+    setTrashProgress({ done: 0, total, failed: 0 })
+
+    for (let i = 0; i < paths.length; i += BATCH_SIZE) {
+      const batch = paths.slice(i, i + BATCH_SIZE)
+
+      let results: { path: string; success: boolean }[]
+      try {
+        results = await window.cleaner.trashFiles(batch)
+      } catch {
+        results = batch.map((p) => ({ path: p, success: false }))
+      }
+
+      for (const r of results) {
+        done++
+        if (!r.success) {
+          failedCount++
+          failedPaths.add(r.path)
+        } else {
+          succeededPaths.push(r.path)
+        }
+      }
+
+      setTrashProgress({ done, total, failed: failedCount })
     }
-    return { failed: Array.from(failed) }
+
+    setTrashProgress(null)
+
+    // Remove succeeded paths from store — uses Zustand's own get/set, always fresh
+    if (succeededPaths.length > 0) {
+      useAppStore.getState().removePaths(succeededPaths)
+    }
+
+    return { failed: Array.from(failedPaths) }
   }
 
   const trashSelected = async () => {

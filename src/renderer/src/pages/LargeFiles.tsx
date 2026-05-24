@@ -7,12 +7,15 @@ import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
 
+const CATEGORIES = ['download', 'screenshot', 'backup', 'document', 'video', 'other'] as const
 
 export function LargeFiles() {
-  const { scanResult, selectedPaths, toggleSelect } = useAppStore()
+  const { scanResult, selectedPaths, toggleSelect, selectPaths, deselectPaths } = useAppStore()
   const { trashPaths } = useTrash()
   const [previewFile, setPreviewFile] = useState<ScannedFile | null>(null)
   const [minMB, setMinMB] = useState(100)
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'size' | 'date'>('size')
 
   if (!scanResult) {
     return (
@@ -22,9 +25,23 @@ export function LargeFiles() {
     )
   }
 
-  const files = [...scanResult.large]
-    .filter((f) => f.size >= minMB * 1e6)
-    .sort((a, b) => b.size - a.size)
+  let files = [...scanResult.large].filter((f) => f.size >= minMB * 1e6)
+  if (categoryFilter) files = files.filter((f) => f.category === categoryFilter)
+  files.sort((a, b) => sortBy === 'size' ? b.size - a.size : b.lastModified - a.lastModified)
+
+  const categoryCounts = CATEGORIES.reduce((acc, c) => {
+    acc[c] = scanResult.large.filter((f) => f.size >= minMB * 1e6 && f.category === c).length
+    return acc
+  }, {} as Record<string, number>)
+
+  const allFilteredPaths = files.map((f) => f.path)
+  const allSelected = allFilteredPaths.length > 0 && allFilteredPaths.every((p) => selectedPaths.has(p))
+  const someSelected = !allSelected && allFilteredPaths.some((p) => selectedPaths.has(p))
+
+  function toggleSelectAll() {
+    if (allSelected) deselectPaths(allFilteredPaths)
+    else selectPaths(allFilteredPaths)
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -41,12 +58,47 @@ export function LargeFiles() {
             {mb >= 1000 ? `${mb / 1000}GB+` : `${mb}MB+`}
           </button>
         ))}
+        <button
+          onClick={() => setSortBy(sortBy === 'size' ? 'date' : 'size')}
+          className="px-2 py-0.5 bg-[#1e1e1e] rounded text-[10px] text-[#888] hover:text-white transition"
+        >
+          {sortBy === 'size' ? 'Boyut ▾' : 'Tarih ▾'}
+        </button>
+      </div>
+
+      {/* Category chips */}
+      <div className="px-5 py-2 border-b border-[#1e1e1e] flex gap-2 overflow-x-auto shrink-0">
+        <button
+          onClick={() => setCategoryFilter(null)}
+          className={`shrink-0 rounded-full px-3 py-1 text-[10px] transition ${!categoryFilter ? 'bg-[#3d2a0f] text-amber-400' : 'bg-[#1e1e1e] text-[#888] hover:text-white'}`}
+        >
+          Tümü <span className="ml-1 opacity-60">{scanResult.large.filter((f) => f.size >= minMB * 1e6).length}</span>
+        </button>
+        {CATEGORIES.map((c) => (
+          categoryCounts[c] > 0 && (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(categoryFilter === c ? null : c)}
+              className={`shrink-0 rounded-full px-3 py-1 text-[10px] transition ${categoryFilter === c ? 'bg-[#3d2a0f] text-amber-400' : 'bg-[#1e1e1e] text-[#666] hover:text-white'}`}
+            >
+              {c} <span className="ml-1 opacity-60">{categoryCounts[c]}</span>
+            </button>
+          )
+        ))}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-[28px_1fr_90px_110px_60px] gap-2 px-5 py-2 text-[9px] font-bold text-[#555] uppercase tracking-wider border-b border-[#161616] sticky top-0 bg-[#0a0a0a]">
-            <span /><span>Dosya Adı</span><span>Boyut</span><span>Son Değişiklik</span><span>Tür</span>
+            <div
+              onClick={toggleSelectAll}
+              title={allSelected ? 'Seçimi kaldır' : 'Tümünü seç'}
+              className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center text-[8px] cursor-pointer shrink-0 transition-colors
+                ${allSelected ? 'bg-blue-500 border-blue-500 text-white' : someSelected ? 'bg-blue-500/40 border-blue-500 text-white' : 'border-[#444] hover:border-[#888]'}`}
+            >
+              {allSelected ? '✓' : someSelected ? '—' : ''}
+            </div>
+            <span>Dosya Adı</span><span>Boyut</span><span>Son Değişiklik</span><span>Tür</span>
           </div>
           {files.map((file) => {
             const isSelected = selectedPaths.has(file.path)
@@ -82,7 +134,7 @@ export function LargeFiles() {
           })}
           {files.length === 0 && (
             <div className="flex items-center justify-center h-32 text-[#555] text-[12px]">
-              Bu eşikte büyük dosya bulunamadı.
+              Bu filtrelerle eşleşen dosya bulunamadı.
             </div>
           )}
         </div>

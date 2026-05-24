@@ -8,8 +8,8 @@ const api = {
   stopScan: () => ipcRenderer.invoke('scan:stop'),
   onProgress: (cb: (p: unknown) => void) => {
     ipcRenderer.on('scan:progress', (_e, p) => cb(p))
-    return () => ipcRenderer.removeAllListeners('scan:progress')
   },
+  offProgress: () => ipcRenderer.removeAllListeners('scan:progress'),
 
   // Trash
   trashFiles: (paths: string[]) => ipcRenderer.invoke('trash:files', paths),

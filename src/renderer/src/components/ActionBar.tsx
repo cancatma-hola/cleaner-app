@@ -9,11 +9,34 @@ interface ActionBarProps {
 }
 
 export function ActionBar({ files }: ActionBarProps) {
-  const { selectedPaths, clearSelection } = useAppStore()
+  const { selectedPaths, clearSelection, trashProgress } = useAppStore()
   const { trashSelected } = useTrash()
 
   const selectedFiles = files.filter((f) => selectedPaths.has(f.path))
   const totalBytes = selectedFiles.reduce((s, f) => s + f.size, 0)
+
+  if (trashProgress) {
+    const pct = Math.round((trashProgress.done / trashProgress.total) * 100)
+    return (
+      <div className="border-t border-[#1e1e1e] bg-[#0d0d0d] px-5 py-3 shrink-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] text-red-400 font-medium">
+            Çöpe taşınıyor — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
+          </span>
+          <span className="text-[11px] text-red-300 font-semibold tabular-nums">{pct}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-[#1e1e1e] overflow-hidden mb-1">
+          <div
+            className="h-full bg-red-500 rounded-full transition-all duration-150"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {trashProgress.failed > 0 && (
+          <div className="text-[9px] text-amber-400">{trashProgress.failed} dosya taşınamadı</div>
+        )}
+      </div>
+    )
+  }
 
   if (selectedPaths.size === 0) return null
 

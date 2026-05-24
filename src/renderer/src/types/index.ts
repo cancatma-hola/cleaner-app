@@ -54,6 +54,10 @@ export interface ScanProgress {
   total: number
   currentPath: string
   phase: 'scanning' | 'hashing' | 'image-hashing' | 'done'
+  hashed?: number
+  hashTotal?: number
+  imageHashed?: number
+  imageHashTotal?: number
 }
 
 export interface ScanResult {

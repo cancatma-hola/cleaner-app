@@ -1,13 +1,22 @@
 // src/renderer/src/pages/Duplicates.tsx
 import { formatBytes } from '../utils/format'
+import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
 import type { DuplicateGroup } from '../types'
 
+const MIN_WASTED_OPTIONS = [
+  { label: 'Tümü', value: 0 },
+  { label: '10MB+', value: 10 * 1e6 },
+  { label: '100MB+', value: 100 * 1e6 },
+  { label: '500MB+', value: 500 * 1e6 },
+]
 
 export function Duplicates() {
-  const { scanResult, selectedPaths, toggleSelect } = useAppStore()
+  const { scanResult, selectedPaths, toggleSelect, trashProgress } = useAppStore()
   const { trashSelected } = useTrash()
+  const [minWasted, setMinWasted] = useState(0)
+  const [sortBy, setSortBy] = useState<'wasted' | 'count' | 'size'>('wasted')
 
   if (!scanResult) {
     return (
@@ -17,11 +26,21 @@ export function Duplicates() {
     )
   }
 
-  const groups = scanResult.duplicates
+  let groups = scanResult.duplicates.filter((g) => g.wastedBytes >= minWasted)
+  groups = [...groups].sort((a, b) => {
+    if (sortBy === 'wasted') return b.wastedBytes - a.wastedBytes
+    if (sortBy === 'count') return b.files.length - a.files.length
+    return b.files[0].size - a.files[0].size
+  })
+
   const totalWasted = groups.reduce((s, g) => s + g.wastedBytes, 0)
 
   const selectGroup = (group: DuplicateGroup) => {
     group.files.filter((f) => !f.isOriginal).forEach((f) => toggleSelect(f.path))
+  }
+
+  const selectAllDuplicates = () => {
+    groups.flatMap((g) => g.files.filter((f) => !f.isOriginal)).forEach((f) => toggleSelect(f.path))
   }
 
   return (
@@ -35,10 +54,53 @@ export function Duplicates() {
         )}
       </div>
 
+      {/* Filters row */}
+      <div className="px-5 py-2 border-b border-[#1e1e1e] flex items-center gap-4 shrink-0">
+        {/* Min wasted */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] text-[#555] uppercase tracking-wider">Min. israf</span>
+          <div className="flex gap-1">
+            {MIN_WASTED_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setMinWasted(opt.value)}
+                className={`px-2 py-0.5 rounded text-[10px] transition ${minWasted === opt.value ? 'bg-[#2d1f4e] text-violet-400' : 'bg-[#1e1e1e] text-[#666] hover:text-white'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1" />
+        {/* Sort */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] text-[#555] uppercase tracking-wider">Sırala</span>
+          <div className="flex gap-1">
+            {([['wasted', 'İsraf'], ['count', 'Kopya Sayısı'], ['size', 'Dosya Boyutu']] as const).map(([val, lbl]) => (
+              <button
+                key={val}
+                onClick={() => setSortBy(val)}
+                className={`px-2 py-0.5 rounded text-[10px] transition ${sortBy === val ? 'bg-[#2d1f4e] text-violet-400' : 'bg-[#1e1e1e] text-[#666] hover:text-white'}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+        {groups.length > 0 && (
+          <button
+            onClick={selectAllDuplicates}
+            className="px-2 py-0.5 bg-[#1e1e1e] text-[#888] hover:text-white rounded text-[10px] transition"
+          >
+            Tüm Kopyaları Seç
+          </button>
+        )}
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && (
           <div className="flex items-center justify-center h-32 text-[#555] text-[12px]">
-            Yinelenen dosya bulunamadı.
+            Bu filtrelerle yinelenen dosya bulunamadı.
           </div>
         )}
         {groups.map((group) => (
@@ -48,7 +110,7 @@ export function Duplicates() {
               <div className="flex-1 overflow-hidden">
                 <span className="text-[11px] font-semibold text-white">{group.files.length} kopya</span>
                 <span className="text-[9px] text-[#555] ml-2">
-                  {group.hash.slice(0, 8)}... · {formatBytes(group.wastedBytes)} israf
+                  {group.hash.slice(0, 8)}... · {formatBytes(group.wastedBytes)} israf · {formatBytes(group.files[0].size)} / dosya
                 </span>
               </div>
               <button
@@ -60,6 +122,7 @@ export function Duplicates() {
             </div>
             {group.files.map((file) => {
               const isSelected = selectedPaths.has(file.path)
+              const daysSince = Math.round((Date.now() - file.lastAccessed) / 86400000)
               return (
                 <div
                   key={file.path}
@@ -85,6 +148,7 @@ export function Duplicates() {
                       {file.path.replace('/' + file.name, '')}
                     </div>
                   </div>
+                  <div className="text-[9px] text-[#666] shrink-0">{daysSince} gün önce erişildi</div>
                   <div className="text-[10px] text-[#888] shrink-0">{formatBytes(file.size)}</div>
                   {file.isOriginal
                     ? <span className="text-[9px] bg-[#0d2a1e] text-emerald-400 px-1.5 py-0.5 rounded shrink-0">Orijinal</span>
@@ -97,7 +161,25 @@ export function Duplicates() {
         ))}
       </div>
 
-      {selectedPaths.size > 0 && (
+      {trashProgress && (
+        <div className="border-t border-[#1e1e1e] bg-[#0d0d0d] px-5 py-3 shrink-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] text-red-400 font-medium">
+              Çöpe taşınıyor — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
+            </span>
+            <span className="text-[11px] text-red-300 font-semibold tabular-nums">
+              {Math.round((trashProgress.done / trashProgress.total) * 100)}%
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-[#1e1e1e] overflow-hidden">
+            <div
+              className="h-full bg-red-500 rounded-full transition-all duration-150"
+              style={{ width: `${Math.round((trashProgress.done / trashProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {!trashProgress && selectedPaths.size > 0 && (
         <div className="border-t border-[#1e1e1e] bg-[#0d0d0d] px-5 py-3 flex items-center gap-3 shrink-0">
           <span className="text-[11px] text-[#888]">{selectedPaths.size} kopya seçili</span>
           <div className="flex-1" />

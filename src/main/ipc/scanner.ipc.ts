@@ -11,6 +11,7 @@ let scannerPool: WorkerPool | null = null
 
 export function registerScannerIpc(win: BrowserWindow): void {
   ipcMain.handle('scan:start', async (_e, config: ScanConfig) => {
+    console.log('[scan:start] paths:', config.paths)
     if (scannerPool) scannerPool.terminateAll()
 
     scannerPool = new WorkerPool(join(__dirname, 'file-scanner.worker.js'), 4)
@@ -18,9 +19,17 @@ export function registerScannerIpc(win: BrowserWindow): void {
     return new Promise<ScanResult>((resolve, reject) => {
       let scannedFiles: ScannedFile[] = []
 
+      const safeSend = (channel: string, payload: unknown) => {
+        try {
+          if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+            win.webContents.send(channel, payload)
+          }
+        } catch { /* render frame disposed */ }
+      }
+
       scannerPool!.on('message', (msg) => {
         if (msg.type === 'progress') {
-          win.webContents.send('scan:progress', msg)
+          safeSend('scan:progress', { phase: 'scanning', ...msg })
         } else if (msg.type === 'result') {
           scannedFiles = msg.files
         }
@@ -49,11 +58,15 @@ export function registerScannerIpc(win: BrowserWindow): void {
             return dot !== -1 && IMAGE_EXTS.has(f.name.slice(dot).toLowerCase())
           })
 
-          win.webContents.send('scan:progress', { phase: 'hashing' })
-          const duplicates = await hashFilesInMainProcess(hashCandidates)
+          safeSend('scan:progress', { phase: 'hashing', hashed: 0, hashTotal: hashCandidates.length })
+          const duplicates = await hashFilesInMainProcess(hashCandidates, (hashed, hashTotal) => {
+            safeSend('scan:progress', { phase: 'hashing', hashed, hashTotal })
+          })
 
-          win.webContents.send('scan:progress', { phase: 'image-hashing' })
-          const similarImages = await runImageHashWorker(imageCandidates)
+          safeSend('scan:progress', { phase: 'image-hashing', imageHashed: 0, imageHashTotal: imageCandidates.length })
+          const similarImages = await runImageHashWorker(imageCandidates, (imageHashed, imageHashTotal) => {
+            safeSend('scan:progress', { phase: 'image-hashing', imageHashed, imageHashTotal })
+          })
 
           const result: ScanResult = {
             unused,
@@ -64,7 +77,7 @@ export function registerScannerIpc(win: BrowserWindow): void {
             scannedAt: now,
           }
 
-          win.webContents.send('scan:progress', { phase: 'done' })
+          safeSend('scan:progress', { phase: 'done' })
           resolve(result)
         } catch (err) {
           reject(err)
@@ -85,8 +98,10 @@ export function registerScannerIpc(win: BrowserWindow): void {
   })
 }
 
-async function hashFilesInMainProcess(files: ScannedFile[]): Promise<DuplicateGroup[]> {
-  // Group by size first — only hash within same-size groups
+async function hashFilesInMainProcess(
+  files: ScannedFile[],
+  onProgress?: (hashed: number, total: number) => void
+): Promise<DuplicateGroup[]> {
   const bySize = new Map<number, ScannedFile[]>()
   for (const f of files) {
     const arr = bySize.get(f.size) ?? []
@@ -95,6 +110,7 @@ async function hashFilesInMainProcess(files: ScannedFile[]): Promise<DuplicateGr
   }
 
   const byHash = new Map<string, ScannedFile[]>()
+  let hashed = 0
   for (const group of bySize.values()) {
     if (group.length < 2) continue
     for (const f of group) {
@@ -104,6 +120,8 @@ async function hashFilesInMainProcess(files: ScannedFile[]): Promise<DuplicateGr
         arr.push(f)
         byHash.set(hash, arr)
       } catch { /* skip unreadable */ }
+      hashed++
+      onProgress?.(hashed, files.length)
     }
   }
 
@@ -131,11 +149,17 @@ function hashFile(filePath: string): Promise<string> {
   })
 }
 
-function runImageHashWorker(files: ScannedFile[]): Promise<SimilarGroup[]> {
+function runImageHashWorker(
+  files: ScannedFile[],
+  onProgress?: (hashed: number, total: number) => void
+): Promise<SimilarGroup[]> {
   if (files.length === 0) return Promise.resolve([])
   return new Promise((resolve, reject) => {
     const worker = new Worker(join(__dirname, 'image-hash.worker.js'), { workerData: { files } })
-    worker.on('message', (msg) => { if (msg.type === 'result') resolve(msg.groups) })
+    worker.on('message', (msg) => {
+      if (msg.type === 'progress') onProgress?.(msg.hashed, msg.total)
+      else if (msg.type === 'result') resolve(msg.groups)
+    })
     worker.on('error', reject)
     worker.on('exit', (code) => { if (code !== 0) reject(new Error(`image-hash worker exited with code ${code}`)) })
   })

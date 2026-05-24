@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useAppStore } from './store/app.store'
 import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './pages/Dashboard'
@@ -18,7 +19,12 @@ const VIEWS = {
 
 export default function App() {
   const activeView = useAppStore((s) => s.activeView)
+  const setSettings = useAppStore((s) => s.setSettings)
   const View = VIEWS[activeView]
+
+  useEffect(() => {
+    window.cleaner.getSettings().then(setSettings).catch(() => {})
+  }, [setSettings])
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0a] text-white">

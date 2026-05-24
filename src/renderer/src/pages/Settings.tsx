@@ -42,7 +42,26 @@ export function Settings() {
 
       {/* Scan paths */}
       <section className="mb-6">
-        <div className="text-[10px] font-bold text-[#666] uppercase mb-3">Tarama Klasörleri</div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="text-[10px] font-bold text-[#666] uppercase">Tarama Klasörleri</div>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              updateScanConfig({ paths: ['/Users/cancatma/Desktop/cleaner-test'] })
+            }}
+            className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[9px] hover:bg-amber-500/30 transition"
+          >
+            Test Modu
+          </button>
+          <button
+            onClick={() => {
+              updateScanConfig({ paths: ['/Users'] })
+            }}
+            className="px-2 py-0.5 bg-[#1e1e1e] text-[#666] rounded text-[9px] hover:text-white transition"
+          >
+            Tam Tarama
+          </button>
+        </div>
         <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-4 space-y-2">
           {local.scanConfig.paths.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -67,6 +86,12 @@ export function Settings() {
               onKeyDown={(e) => { if (e.key === 'Enter') addPath() }}
               className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-white rounded px-3 py-1.5 outline-none focus:border-blue-500"
             />
+            <button
+              onClick={addPath}
+              className="px-3 py-1.5 bg-[#1e3a5f] text-blue-400 rounded text-[10px] hover:brightness-125 transition"
+            >
+              Ekle
+            </button>
           </div>
         </div>
       </section>
