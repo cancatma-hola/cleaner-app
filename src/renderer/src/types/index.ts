@@ -42,7 +42,7 @@ export interface ScanConfig {
 }
 
 export const DEFAULT_SCAN_CONFIG: ScanConfig = {
-  paths: [process.env.HOME ?? '/Users'],
+  paths: ['/Users'],
   excludePatterns: ['**/node_modules/**', '**/.git/**', '**/Library/Caches/**'],
   unusedThresholdDays: 90,
   largeSizeThresholdMB: 100,
