@@ -1,8 +1,8 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
+// src/preload/index.d.ts
+import type { CleanerAPI } from './index'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: unknown
+    cleaner: CleanerAPI
   }
 }
