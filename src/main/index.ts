@@ -1,6 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { registerScannerIpc } from './ipc/scanner.ipc'
+import { registerTrashIpc } from './ipc/trash.ipc'
+import { registerStoreIpc } from './ipc/store.ipc'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -44,6 +47,11 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  const mainWindow = BrowserWindow.getAllWindows()[0]
+  registerScannerIpc(mainWindow)
+  registerTrashIpc()
+  registerStoreIpc()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
