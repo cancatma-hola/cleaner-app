@@ -4,9 +4,8 @@ import { useAppStore } from '../store/app.store'
 export function useTrash() {
   const { selectedPaths, clearSelection, scanResult, setScanResult } = useAppStore()
 
-  const trashSelected = async () => {
-    if (selectedPaths.size === 0) return
-    const paths = Array.from(selectedPaths)
+  const trashPaths = async (paths: string[]) => {
+    if (paths.length === 0) return { failed: [] }
     const results = await window.cleaner.trashFiles(paths)
     const failed = new Set(results.filter((r: { success: boolean }) => !r.success).map((r: { path: string }) => r.path))
     const removed = new Set(paths.filter((p) => !failed.has(p)))
@@ -21,9 +20,15 @@ export function useTrash() {
           .filter((g) => g.files.length > 1),
       })
     }
-    clearSelection()
     return { failed: Array.from(failed) }
   }
 
-  return { trashSelected, selectedCount: selectedPaths.size }
+  const trashSelected = async () => {
+    if (selectedPaths.size === 0) return
+    const result = await trashPaths(Array.from(selectedPaths))
+    clearSelection()
+    return result
+  }
+
+  return { trashSelected, trashPaths, selectedCount: selectedPaths.size }
 }

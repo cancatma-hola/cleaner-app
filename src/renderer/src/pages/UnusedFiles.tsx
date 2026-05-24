@@ -1,6 +1,7 @@
 // src/renderer/src/pages/UnusedFiles.tsx
 import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
+import { useTrash } from '../hooks/useTrash'
 import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
@@ -16,6 +17,7 @@ function formatBytes(b: number) {
 
 export function UnusedFiles() {
   const { scanResult, selectedPaths, toggleSelect } = useAppStore()
+  const { trashPaths } = useTrash()
   const [daysFilter, setDaysFilter] = useState<number>(90)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [previewFile, setPreviewFile] = useState<ScannedFile | null>(null)
@@ -131,7 +133,7 @@ export function UnusedFiles() {
           <PreviewPanel
             file={previewFile}
             onTrash={async () => {
-              await window.cleaner.trashFiles([previewFile.path])
+              await trashPaths([previewFile.path])
               setPreviewFile(null)
             }}
           />

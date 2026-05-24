@@ -1,6 +1,7 @@
 // src/renderer/src/pages/LargeFiles.tsx
 import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
+import { useTrash } from '../hooks/useTrash'
 import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
@@ -13,6 +14,7 @@ function formatBytes(b: number) {
 
 export function LargeFiles() {
   const { scanResult, selectedPaths, toggleSelect } = useAppStore()
+  const { trashPaths } = useTrash()
   const [previewFile, setPreviewFile] = useState<ScannedFile | null>(null)
   const [minMB, setMinMB] = useState(100)
 
@@ -92,7 +94,7 @@ export function LargeFiles() {
           <PreviewPanel
             file={previewFile}
             onTrash={async () => {
-              await window.cleaner.trashFiles([previewFile.path])
+              await trashPaths([previewFile.path])
               setPreviewFile(null)
             }}
           />
