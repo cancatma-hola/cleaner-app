@@ -1,6 +1,7 @@
 // src/renderer/src/components/PreviewPanel.tsx
 import { formatBytes } from '../utils/format'
 import type { ScannedFile } from '../types'
+import { LABELS, previewUrl } from '../utils/platform'
 
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.bmp'])
@@ -20,7 +21,7 @@ export function PreviewPanel({ file, onTrash }: PreviewPanelProps) {
       <div className="flex-1 flex items-center justify-center border-b border-[#1e1e1e] p-4 overflow-hidden">
         {isImage ? (
           <img
-            src={`file://${file.path}`}
+            src={previewUrl(file.path)}
             alt={file.name}
             className="max-w-full max-h-full object-contain rounded"
           />
@@ -55,13 +56,14 @@ export function PreviewPanel({ file, onTrash }: PreviewPanelProps) {
             onClick={() => window.cleaner.revealInFinder(file.path)}
             className="flex-1 py-1.5 bg-[#1e1e1e] rounded text-[10px] text-[#888] hover:text-white transition"
           >
-            Finder'da Göster
+            {LABELS.revealInFileManager}
           </button>
           <button
             onClick={onTrash}
+            title={LABELS.trashAction}
             className="flex-1 py-1.5 bg-red-500 rounded text-[10px] text-white hover:bg-red-600 transition"
           >
-            Çöpe Taşı
+            {LABELS.trashActionShort}
           </button>
         </div>
       </div>

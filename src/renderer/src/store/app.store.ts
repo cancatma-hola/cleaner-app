@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { ScanResult, ScanProgress, AppSettings } from '../types'
 import { DEFAULT_SETTINGS } from '../types'
 
-type ActiveView = 'dashboard' | 'unused' | 'duplicates' | 'large' | 'similar' | 'settings'
+export type ActiveView = 'dashboard' | 'unused' | 'duplicates' | 'large' | 'similar' | 'system' | 'settings'
 
 export interface TrashProgress {
   done: number

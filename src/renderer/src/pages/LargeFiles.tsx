@@ -6,6 +6,7 @@ import { useTrash } from '../hooks/useTrash'
 import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
+import { parentDir } from '../utils/platform'
 
 const CATEGORIES = ['download', 'screenshot', 'backup', 'document', 'video', 'other'] as const
 
@@ -120,7 +121,7 @@ export function LargeFiles() {
                 </div>
                 <div className="overflow-hidden">
                   <div className="text-[11px] text-white truncate">{file.name}</div>
-                  <div className="text-[9px] text-[#555] truncate">{file.path.replace('/' + file.name, '')}</div>
+                  <div className="text-[9px] text-[#555] truncate">{parentDir(file.path)}</div>
                 </div>
                 <div className={`text-[11px] font-medium ${file.size > 1e9 ? 'text-red-400' : 'text-amber-400'}`}>
                   {formatBytes(file.size)}

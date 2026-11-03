@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
 import type { DuplicateGroup } from '../types'
+import { LABELS, parentDir } from '../utils/platform'
 
 const MIN_WASTED_OPTIONS = [
   { label: 'Tümü', value: 0 },
@@ -145,7 +146,7 @@ export function Duplicates() {
                       {file.name}
                     </div>
                     <div className="text-[9px] text-[#444] truncate">
-                      {file.path.replace('/' + file.name, '')}
+                      {parentDir(file.path)}
                     </div>
                   </div>
                   <div className="text-[9px] text-[#666] shrink-0">{daysSince} gün önce erişildi</div>
@@ -165,7 +166,7 @@ export function Duplicates() {
         <div className="border-t border-[#1e1e1e] bg-[#0d0d0d] px-5 py-3 shrink-0">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] text-red-400 font-medium">
-              Çöpe taşınıyor — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
+              {LABELS.trashProgress} — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
             </span>
             <span className="text-[11px] text-red-300 font-semibold tabular-nums">
               {Math.round((trashProgress.done / trashProgress.total) * 100)}%
@@ -187,7 +188,7 @@ export function Duplicates() {
             onClick={trashSelected}
             className="px-3 py-1.5 bg-red-500 rounded text-[11px] text-white font-semibold hover:bg-red-600 transition"
           >
-            Seçilenleri Çöpe Taşı
+            {LABELS.trashSelected}
           </button>
         </div>
       )}

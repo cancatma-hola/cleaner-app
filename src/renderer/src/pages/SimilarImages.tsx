@@ -2,6 +2,7 @@
 import { formatBytes } from '../utils/format'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
+import { LABELS, previewUrl } from '../utils/platform'
 
 
 export function SimilarImages() {
@@ -48,7 +49,7 @@ export function SimilarImages() {
                       ${isSelected ? 'border-blue-500' : 'border-[#1e1e1e] hover:border-[#333]'}`}
                   >
                     <img
-                      src={`file://${file.path}`}
+                      src={previewUrl(file.path)}
                       alt={file.name}
                       className="w-full h-28 object-cover"
                     />
@@ -75,7 +76,7 @@ export function SimilarImages() {
             onClick={trashSelected}
             className="px-3 py-1.5 bg-red-500 rounded text-[11px] text-white font-semibold hover:bg-red-600 transition"
           >
-            Seçilenleri Çöpe Taşı
+            {LABELS.trashSelected}
           </button>
         </div>
       )}

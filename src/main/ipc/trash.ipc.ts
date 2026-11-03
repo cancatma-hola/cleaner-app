@@ -6,8 +6,19 @@ import { join, basename, extname } from 'path'
 import { homedir } from 'os'
 
 async function trashItem(p: string): Promise<void> {
-  // 1. Native Electron trash
-  try { await shell.trashItem(p); return } catch { /* try next */ }
+  // Network shares have no Recycle Bin — Windows would delete permanently.
+  if (process.platform === 'win32' && (p.startsWith('\\\\') || p.startsWith('//'))) {
+    throw new Error('Ağ konumlarında Geri Dönüşüm Kutusu yok; dosya silinmedi')
+  }
+  // 1. Native Electron trash (macOS Trash / Windows Recycle Bin / freedesktop Trash)
+  try {
+    await shell.trashItem(p)
+    return
+  } catch (err) {
+    // The fallbacks below are macOS-only. On Windows/Linux we never fall back to a
+    // permanent delete — the failure is reported to the user instead.
+    if (process.platform !== 'darwin') throw err
+  }
 
   // 2. AppleScript / Finder (works for iCloud Drive on most volumes)
   try {

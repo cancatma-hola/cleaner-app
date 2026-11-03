@@ -2,6 +2,7 @@
 import { formatBytes } from '../utils/format'
 import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
+import { LABELS } from '../utils/platform'
 
 
 interface ActionBarProps {
@@ -21,7 +22,7 @@ export function ActionBar({ files }: ActionBarProps) {
       <div className="border-t border-[#1e1e1e] bg-[#0d0d0d] px-5 py-3 shrink-0">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[11px] text-red-400 font-medium">
-            Çöpe taşınıyor — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
+            {LABELS.trashProgress} — {trashProgress.done.toLocaleString('tr-TR')} / {trashProgress.total.toLocaleString('tr-TR')} dosya
           </span>
           <span className="text-[11px] text-red-300 font-semibold tabular-nums">{pct}%</span>
         </div>
@@ -57,7 +58,7 @@ export function ActionBar({ files }: ActionBarProps) {
         onClick={trashSelected}
         className="px-3 py-1.5 bg-red-500 rounded text-[11px] text-white font-semibold hover:bg-red-600 transition"
       >
-        Çöpe Taşı ({formatBytes(totalBytes)})
+        {LABELS.trashAction} ({formatBytes(totalBytes)})
       </button>
     </div>
   )
