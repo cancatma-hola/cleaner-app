@@ -7,6 +7,7 @@ import { Duplicates } from './pages/Duplicates'
 import { LargeFiles } from './pages/LargeFiles'
 import { SimilarImages } from './pages/SimilarImages'
 import { Settings } from './pages/Settings'
+import { SystemClean } from './pages/SystemClean'
 
 const VIEWS = {
   dashboard: Dashboard,
@@ -14,6 +15,7 @@ const VIEWS = {
   duplicates: Duplicates,
   large: LargeFiles,
   similar: SimilarImages,
+  system: SystemClean,
   settings: Settings,
 }
 

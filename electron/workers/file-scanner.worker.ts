@@ -1,31 +1,51 @@
 // electron/workers/file-scanner.worker.ts
 import { workerData, parentPort } from 'worker_threads'
 import { readdirSync, statSync } from 'fs'
-import { join } from 'path'
+import { join, win32 } from 'path'
 import { minimatch } from 'minimatch'
-import type { ScannedFile, Category } from '../../src/renderer/src/types'
+import type { ScannedFile } from '../../src/renderer/src/types'
+import { categorize } from '../../src/main/services/categorize'
 
-const SYSTEM_DIRS = new Set(['/System', '/Library', '/usr', '/bin', '/sbin', '/private'])
+export { categorize }
 
-export function shouldSkip(name: string, excludePatterns: string[], includeHidden = false): boolean {
+const POSIX_SYSTEM_DIRS = new Set(['/System', '/Library', '/usr', '/bin', '/sbin', '/private'])
+
+// Top-level folders on any Windows drive that must never be walked.
+const WIN_SYSTEM_DIR_NAMES = new Set([
+  'windows',
+  'program files',
+  'program files (x86)',
+  'programdata',
+  '$recycle.bin',
+  'system volume information',
+  'recovery',
+  'perflogs',
+  '$windows.~bt',
+  '$windows.~ws',
+  '$winreagent',
+  'config.msi',
+])
+
+export function isSystemDir(dir: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== 'win32') return POSIX_SYSTEM_DIRS.has(dir)
+  const { root } = win32.parse(dir)
+  const rest = dir.slice(root.length).replace(/[\\/]+$/, '')
+  if (!rest || /[\\/]/.test(rest)) return false // only direct children of a drive root
+  return WIN_SYSTEM_DIR_NAMES.has(rest.toLowerCase())
+}
+
+export function shouldSkip(
+  name: string,
+  excludePatterns: string[],
+  includeHidden = false,
+  nocase = process.platform === 'win32',
+): boolean {
   if (!includeHidden && name.startsWith('.')) return true
   return excludePatterns.some((p) => {
     // Match the bare name against the stripped pattern (e.g. node_modules/** → node_modules)
     const stripped = p.replace(/^\*\*\//, '').replace(/\/\*\*$/, '')
-    return minimatch(name, stripped) || minimatch(name, p)
+    return minimatch(name, stripped, { nocase }) || minimatch(name, p, { nocase })
   })
-}
-
-export function categorize(name: string, dir: string): Category {
-  const lower = name.toLowerCase()
-  const lowerDir = dir.toLowerCase()
-  if (lower.match(/screenshot/) || lowerDir.includes('screenshot')) return 'screenshot'
-  if (lowerDir.includes('download')) return 'download'
-  if (lower.match(/\.(zip|tar\.gz|tar\.bz2|7z|rar|dmg|bak)$/)) return 'backup'
-  if (lower.match(/\.(mp4|mov|avi|mkv|m4v|wmv)$/)) return 'video'
-  if (lower.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|md|pages|numbers|key)$/)) return 'document'
-  if (lower.match(/\.(png|jpg|jpeg|gif|webp|heic|svg|bmp)$/)) return 'screenshot'
-  return 'other'
 }
 
 export async function scanDirectory(
@@ -35,7 +55,7 @@ export async function scanDirectory(
   const results: ScannedFile[] = []
 
   const walk = (dir: string) => {
-    if (SYSTEM_DIRS.has(dir)) return
+    if (isSystemDir(dir)) return
     let entries
     try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
 
@@ -49,7 +69,9 @@ export async function scanDirectory(
             path: full,
             name: entry.name,
             size: s.size,
-            lastAccessed: s.atimeMs,
+            // atime alone is unreliable (NTFS / APFS update it lazily or not at all);
+            // a file modified recently is never "unused".
+            lastAccessed: Math.max(s.atimeMs, s.mtimeMs),
             lastModified: s.mtimeMs,
             created: s.birthtimeMs,
             category: categorize(entry.name, dir),
@@ -61,6 +83,7 @@ export async function scanDirectory(
       } else if (entry.isDirectory()) {
         walk(full)
       }
+      // Symlinks and Windows junctions (e.g. "Application Data") are intentionally not followed.
     }
   }
 

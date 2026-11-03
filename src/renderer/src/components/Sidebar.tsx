@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { key: 'duplicates', label: 'Yinelenler', icon: '⎘' },
   { key: 'large', label: 'Büyük Dosyalar', icon: '⬆' },
   { key: 'similar', label: 'Benzer Resimler', icon: '▦' },
+  { key: 'system', label: 'Sistem Temizliği', icon: '✦' },
 ] as const
 
 export function Sidebar() {

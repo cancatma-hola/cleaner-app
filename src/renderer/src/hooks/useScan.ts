@@ -17,7 +17,10 @@ export function useScan() {
     setScanning(true)
     setScanProgress({ scanned: 0, total: 0, currentPath: '', phase: 'scanning' })
     try {
-      const result = await window.cleaner.startScan(config ?? useAppStore.getState().settings.scanConfig)
+      // The main-process store is the source of truth (OS-specific defaults); the renderer
+      // copy may still hold the placeholder defaults if settings haven't loaded yet.
+      const scanConfig = config ?? (await window.cleaner.getSettings())?.scanConfig ?? useAppStore.getState().settings.scanConfig
+      const result = await window.cleaner.startScan(scanConfig)
       setScanResult(result)
     } finally {
       setScanning(false)

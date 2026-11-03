@@ -11,8 +11,13 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
 win:
   executableName: cleaner
+  # No "portable" target: it unpacks into %TEMP%, which the System Cleanup itself cleans.
+  target:
+    - nsis
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

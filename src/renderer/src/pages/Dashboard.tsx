@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/app.store'
 import { useScan } from '../hooks/useScan'
 import type { DiskInfo } from '../types'
+import { isWin } from '../utils/platform'
 
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -17,12 +18,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 export function Dashboard() {
-  const { scanResult, isScanning, scanProgress, setActiveView } = useAppStore()
+  const { scanResult, isScanning, scanProgress, setActiveView, settings } = useAppStore()
+  const { unusedThresholdDays, largeSizeThresholdMB } = settings.scanConfig
   const { startScan } = useScan()
   const [diskInfo, setDiskInfo] = useState<DiskInfo | null>(null)
 
   useEffect(() => {
-    window.cleaner.getDiskInfo().then(setDiskInfo)
+    window.cleaner.getDiskInfo().then(setDiskInfo).catch(() => {})
   }, [])
 
   const usedPct = diskInfo ? (diskInfo.used / diskInfo.total) * 100 : 0
@@ -153,9 +155,9 @@ export function Dashboard() {
       <div className="text-[10px] font-semibold text-[#666] mb-3">HIZLI TARAMA</div>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Kullanılmayan Dosyalar', desc: 'Son 90 günde açılmamış', icon: '⏱', border: 'border-[#1e3a5f]', iconColor: 'text-blue-400', view: 'unused' as const },
+          { label: 'Kullanılmayan Dosyalar', desc: `Son ${unusedThresholdDays} günde açılmamış`, icon: '⏱', border: 'border-[#1e3a5f]', iconColor: 'text-blue-400', view: 'unused' as const },
           { label: 'Yinelenen Dosyalar', desc: 'İçerik hash karşılaştırması', icon: '⎘', border: 'border-[#2d1f4e]', iconColor: 'text-violet-400', view: 'duplicates' as const },
-          { label: 'Büyük Dosyalar', desc: '100 MB üzeri', icon: '⬆', border: 'border-[#3d2a0f]', iconColor: 'text-amber-400', view: 'large' as const },
+          { label: 'Büyük Dosyalar', desc: largeSizeThresholdMB >= 1000 ? `${largeSizeThresholdMB / 1000} GB üzeri` : `${largeSizeThresholdMB} MB üzeri`, icon: '⬆', border: 'border-[#3d2a0f]', iconColor: 'text-amber-400', view: 'large' as const },
           { label: 'Tam Tarama', desc: 'Tüm kategoriler', icon: '▦', border: 'border-[#1e3a2a]', iconColor: 'text-emerald-400', view: null },
         ].map(({ label, desc, icon, border, iconColor, view }) => (
           <button
@@ -172,6 +174,18 @@ export function Dashboard() {
             <div className="text-[10px] text-[#555] mt-0.5">{desc}</div>
           </button>
         ))}
+        <button
+          onClick={() => setActiveView('system')}
+          className="col-span-2 bg-[#111] border border-[#3a1e3a] rounded-lg p-4 text-left hover:brightness-110 transition flex items-center gap-4"
+        >
+          <div className="text-xl text-pink-400">✦</div>
+          <div>
+            <div className="text-[12px] font-medium text-white">Sistem Temizliği</div>
+            <div className="text-[10px] text-[#555] mt-0.5">
+              Geçici dosyalar, tarayıcı önbellekleri, hata raporları ve {isWin ? 'Geri Dönüşüm Kutusu' : 'Çöp Kutusu'}
+            </div>
+          </div>
+        </button>
       </div>
     </div>
   )

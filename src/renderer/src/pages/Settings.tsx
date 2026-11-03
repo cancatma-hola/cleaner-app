@@ -1,7 +1,8 @@
 // src/renderer/src/pages/Settings.tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/app.store'
-import type { AppSettings } from '../types'
+import type { AppSettings, SystemInfo } from '../types'
+import { LABELS, isAbsolutePath, isWin } from '../utils/platform'
 
 export function Settings() {
   const { settings, setSettings } = useAppStore()
@@ -9,18 +10,50 @@ export function Settings() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [newPath, setNewPath] = useState('')
+  const [pathError, setPathError] = useState<string | null>(null)
+  const [newPattern, setNewPattern] = useState('')
+  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null)
+
+  useEffect(() => {
+    window.cleaner.getSystemInfo().then(setSysInfo).catch(() => {})
+  }, [])
 
   const update = (patch: Partial<AppSettings>) =>
     setLocal((prev) => ({ ...prev, ...patch }))
 
   const updateScanConfig = (patch: Partial<AppSettings['scanConfig']>) =>
-    update({ scanConfig: { ...local.scanConfig, ...patch } })
+    setLocal((prev) => ({ ...prev, scanConfig: { ...prev.scanConfig, ...patch } }))
+
+  const addPaths = (vals: string[]) => {
+    setLocal((prev) => {
+      const paths = [...prev.scanConfig.paths]
+      for (const v of vals) if (!paths.includes(v)) paths.push(v)
+      return { ...prev, scanConfig: { ...prev.scanConfig, paths } }
+    })
+  }
 
   const addPath = () => {
     const val = newPath.trim()
-    if (val && val.startsWith('/') && !local.scanConfig.paths.includes(val)) {
-      updateScanConfig({ paths: [...local.scanConfig.paths, val] })
-      setNewPath('')
+    if (!val) return
+    if (!isAbsolutePath(val)) {
+      setPathError(isWin ? 'Tam yol girin (ör. C:\\Users\\...)' : 'Tam yol girin (ör. /Users/...)')
+      return
+    }
+    setPathError(null)
+    addPaths([val])
+    setNewPath('')
+  }
+
+  const pickFolders = async () => {
+    const picked = await window.cleaner.pickFolders()
+    if (picked.length > 0) addPaths(picked)
+  }
+
+  const addPattern = () => {
+    const val = newPattern.trim()
+    if (val && !local.scanConfig.excludePatterns.includes(val)) {
+      updateScanConfig({ excludePatterns: [...local.scanConfig.excludePatterns, val] })
+      setNewPattern('')
     }
   }
 
@@ -47,16 +80,18 @@ export function Settings() {
           <div className="flex-1" />
           <button
             onClick={() => {
-              updateScanConfig({ paths: ['/Users/cancatma/Desktop/cleaner-test'] })
+              if (sysInfo) updateScanConfig({ paths: [sysInfo.testDir] })
             }}
+            title={sysInfo?.testDir}
             className="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[9px] hover:bg-amber-500/30 transition"
           >
             Test Modu
           </button>
           <button
             onClick={() => {
-              updateScanConfig({ paths: ['/Users'] })
+              if (sysInfo) updateScanConfig({ paths: sysInfo.defaultScanPaths })
             }}
+            title={sysInfo?.defaultScanPaths.join(', ')}
             className="px-2 py-0.5 bg-[#1e1e1e] text-[#666] rounded text-[9px] hover:text-white transition"
           >
             Tam Tarama
@@ -82,7 +117,7 @@ export function Settings() {
               type="text"
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
-              placeholder="/Users/kullanici/Documents"
+              placeholder={LABELS.pathPlaceholder}
               onKeyDown={(e) => { if (e.key === 'Enter') addPath() }}
               className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-white rounded px-3 py-1.5 outline-none focus:border-blue-500"
             />
@@ -92,14 +127,37 @@ export function Settings() {
             >
               Ekle
             </button>
+            <button
+              onClick={pickFolders}
+              className="px-3 py-1.5 bg-[#1e1e1e] text-[#aaa] rounded text-[10px] hover:text-white transition"
+            >
+              Klasör Seç…
+            </button>
           </div>
+          {pathError && <div className="text-[10px] text-red-400">{pathError}</div>}
         </div>
       </section>
 
       {/* Exclusion patterns */}
       <section className="mb-6">
-        <div className="text-[10px] font-bold text-[#666] uppercase mb-3">Dışlama Kuralları</div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="text-[10px] font-bold text-[#666] uppercase">Dışlama Kuralları</div>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              if (sysInfo) updateScanConfig({ excludePatterns: sysInfo.defaultExcludePatterns })
+            }}
+            className="px-2 py-0.5 bg-[#1e1e1e] text-[#666] rounded text-[9px] hover:text-white transition"
+          >
+            Varsayılanlara Dön
+          </button>
+        </div>
         <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-4 space-y-2">
+          {isWin && (
+            <div className="text-[9px] text-[#555] mb-1">
+              OneDrive varsayılan olarak dışlanır: buluttaki dosyaların karşılaştırılması onları bilgisayara indirir.
+            </div>
+          )}
           {local.scanConfig.excludePatterns.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="flex-1 text-[11px] text-[#888] bg-[#1a1a1a] px-3 py-1.5 rounded font-mono truncate">{p}</span>
@@ -113,6 +171,22 @@ export function Settings() {
               </button>
             </div>
           ))}
+          <div className="flex gap-2 pt-1">
+            <input
+              type="text"
+              value={newPattern}
+              onChange={(e) => setNewPattern(e.target.value)}
+              placeholder="**/Klasör/** veya *.tmp"
+              onKeyDown={(e) => { if (e.key === 'Enter') addPattern() }}
+              className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-white rounded px-3 py-1.5 outline-none focus:border-blue-500 font-mono"
+            />
+            <button
+              onClick={addPattern}
+              className="px-3 py-1.5 bg-[#1e3a5f] text-blue-400 rounded text-[10px] hover:brightness-125 transition"
+            >
+              Ekle
+            </button>
+          </div>
         </div>
       </section>
 
@@ -172,7 +246,7 @@ export function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] text-white">Zamanlanmış tarama</div>
-              <div className="text-[9px] text-[#555] mt-0.5">Tarama tamamlanınca bildirim gönderilir</div>
+              <div className="text-[9px] text-[#555] mt-0.5">Seçilen gün geldiğinde temizlik hatırlatması gönderilir</div>
             </div>
             <button
               onClick={() => update({ scheduleEnabled: !local.scheduleEnabled })}
@@ -196,8 +270,8 @@ export function Settings() {
           )}
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[11px] text-white">macOS Bildirimleri</div>
-              <div className="text-[9px] text-[#555] mt-0.5">Tarama tamamlanınca bildir</div>
+              <div className="text-[11px] text-white">{LABELS.notifications}</div>
+              <div className="text-[9px] text-[#555] mt-0.5">Zamanlanmış tarama gününde hatırlat</div>
             </div>
             <button
               onClick={() => update({ notificationsEnabled: !local.notificationsEnabled })}

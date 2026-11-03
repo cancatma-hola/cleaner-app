@@ -6,6 +6,7 @@ import { useTrash } from '../hooks/useTrash'
 import { ActionBar } from '../components/ActionBar'
 import { PreviewPanel } from '../components/PreviewPanel'
 import type { ScannedFile } from '../types'
+import { parentDir } from '../utils/platform'
 
 const DAYS_FILTERS = [30, 90, 180, 365] as const
 const CATEGORIES = ['download', 'screenshot', 'backup', 'document', 'video', 'other'] as const
@@ -126,7 +127,7 @@ export function UnusedFiles() {
                 </div>
                 <div className="overflow-hidden">
                   <div className="text-[11px] text-white truncate">{file.name}</div>
-                  <div className="text-[9px] text-[#555] truncate">{file.path.replace('/' + file.name, '')}</div>
+                  <div className="text-[9px] text-[#555] truncate">{parentDir(file.path)}</div>
                 </div>
                 <div className={`text-[11px] ${file.size > 1e9 ? 'text-red-400' : file.size > 1e8 ? 'text-amber-400' : 'text-[#888]'}`}>
                   {formatBytes(file.size)}

@@ -90,5 +90,45 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: true,
 }
 
+export interface SystemInfo {
+  platform: string
+  homeDir: string
+  isAdmin: boolean
+  defaultScanPaths: string[]
+  defaultExcludePatterns: string[]
+  testDir: string
+}
+
+// ---- Sistem Temizliği
+export type CleanGroup = 'system' | 'browser' | 'developer' | 'trash'
+
+export interface CleanTarget {
+  id: string
+  label: string
+  description: string
+  group: CleanGroup
+  roots: string[]
+  minAgeHours: number
+  requiresAdmin: boolean
+  warning?: string
+  defaultSelected: boolean
+}
+
+export interface CleanStats {
+  bytes: number
+  files: number
+  skippedYoung: number
+  failed: number
+}
+
+export interface CleanOutcome {
+  id: string
+  freedBytes: number
+  deleted: number
+  failed: number
+  skippedYoung: number
+  error?: string
+}
+
 // Window augmentation for renderer — CleanerAPI will be declared in preload
 export {}

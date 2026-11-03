@@ -1,18 +1,43 @@
-import { app, BrowserWindow } from 'electron'
-import { join } from 'path'
+import './dev/smoke-env' // must stay first: isolates userData for smoke runs before the store loads
+import { app, BrowserWindow, nativeTheme, protocol, net } from 'electron'
+import { join, extname } from 'path'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerScannerIpc } from './ipc/scanner.ipc'
 import { registerTrashIpc } from './ipc/trash.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
+import { registerSystemIpc } from './ipc/system.ipc'
 import { setupScheduler } from './scheduler'
+import { isMac } from './platform'
+import { smokeEnabled, prepareSmoke, runSmoke } from './dev/smoke'
 
-function createWindow(): void {
+// Local image previews. file:// is blocked from the dev-server origin and breaks on
+// Windows paths ("C:\..."), so previews go through a dedicated, image-only scheme.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'cleaner-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+])
+const PREVIEW_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.avif', '.heic'])
+
+function registerPreviewProtocol(): void {
+  protocol.handle('cleaner-file', (req) => {
+    const p = new URL(req.url).searchParams.get('p')
+    // UNC paths are refused: opening \\host\share would trigger an SMB/NTLM handshake.
+    if (!p || p.startsWith('\\\\') || p.startsWith('//') || !PREVIEW_EXTS.has(extname(p).toLowerCase())) {
+      return new Response('forbidden', { status: 403 })
+    }
+    return net.fetch(pathToFileURL(p).toString())
+  })
+}
+
+function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 780,
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
+    // hiddenInset is macOS-only; Windows/Linux keep the native (dark) frame.
+    ...(isMac ? { titleBarStyle: 'hiddenInset' as const } : {}),
+    title: 'Cleaner',
     backgroundColor: '#0a0a0a',
     show: false,
     autoHideMenuBar: true,
@@ -24,7 +49,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    if (is.dev) mainWindow.webContents.openDevTools()
+    if (is.dev && !smokeEnabled) mainWindow.webContents.openDevTools()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -32,14 +57,13 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  return mainWindow
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // Set app user model id for windows (must match electron-builder appId for notifications)
+  electronApp.setAppUserModelId('com.electron.app')
+  nativeTheme.themeSource = 'dark'
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -48,13 +72,17 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
+  registerPreviewProtocol()
+  if (smokeEnabled) prepareSmoke()
 
-  const mainWindow = BrowserWindow.getAllWindows()[0]
+  const mainWindow = createWindow()
   registerScannerIpc(mainWindow)
   registerTrashIpc()
   registerStoreIpc()
+  registerSystemIpc()
   setupScheduler()
+
+  if (smokeEnabled) void runSmoke(mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -71,6 +99,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

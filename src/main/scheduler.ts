@@ -27,7 +27,7 @@ function updateSchedule(settings: AppSettings): void {
     if (current.notificationsEnabled) {
       new Notification({
         title: 'CLEANER',
-        body: 'Zamanlanmış tarama tamamlandı — uygulamayı açarak sonuçları görün.',
+        body: 'Temizlik zamanı — uygulamayı açıp taramayı başlatın.',
       }).show()
     }
   })
