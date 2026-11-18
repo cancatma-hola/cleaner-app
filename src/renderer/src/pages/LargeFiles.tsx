@@ -16,6 +16,7 @@ export function LargeFiles() {
   const [minMB, setMinMB] = useState(100)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'size' | 'date'>('size')
+  const [unusedDays, setUnusedDays] = useState<number | null>(null)
 
   if (!scanResult) {
     return (
@@ -25,8 +26,10 @@ export function LargeFiles() {
     )
   }
 
+  const now = Date.now()
   let files = [...scanResult.large].filter((f) => f.size >= minMB * 1e6)
   if (categoryFilter) files = files.filter((f) => f.category === categoryFilter)
+  if (unusedDays !== null) files = files.filter((f) => (now - f.lastAccessed) / 86400000 >= unusedDays)
   files.sort((a, b) => sortBy === 'size' ? b.size - a.size : b.lastModified - a.lastModified)
 
   const categoryCounts = CATEGORIES.reduce((acc, c) => {
@@ -66,7 +69,21 @@ export function LargeFiles() {
         </button>
       </div>
 
-      {/* Category chips */}
+      {/* Unused filter + category chips */}
+      <div className="px-5 py-2 border-b border-[#1e1e1e] flex gap-2 overflow-x-auto shrink-0 items-center">
+        <span className="text-[9px] text-[#555] uppercase tracking-wider shrink-0">Kullanılmayan</span>
+        {([30, 90, 180] as const).map((d) => (
+          <button
+            key={d}
+            onClick={() => setUnusedDays(unusedDays === d ? null : d)}
+            className={`shrink-0 rounded-full px-3 py-1 text-[10px] transition ${unusedDays === d ? 'bg-[#1e3a2a] text-emerald-400' : 'bg-[#1e1e1e] text-[#666] hover:text-white'}`}
+          >
+            {d}+ gün
+          </button>
+        ))}
+        <div className="w-px h-4 bg-[#2a2a2a] shrink-0 mx-1" />
+      </div>
+
       <div className="px-5 py-2 border-b border-[#1e1e1e] flex gap-2 overflow-x-auto shrink-0">
         <button
           onClick={() => setCategoryFilter(null)}
@@ -103,6 +120,8 @@ export function LargeFiles() {
           {files.map((file) => {
             const isSelected = selectedPaths.has(file.path)
             const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase() : '—'
+            const daysSinceAccess = Math.round((now - file.lastAccessed) / 86400000)
+            const isUnused = unusedDays !== null && daysSinceAccess >= unusedDays
             return (
               <div
                 key={file.path}
@@ -125,8 +144,8 @@ export function LargeFiles() {
                 <div className={`text-[11px] font-medium ${file.size > 1e9 ? 'text-red-400' : 'text-amber-400'}`}>
                   {formatBytes(file.size)}
                 </div>
-                <div className="text-[11px] text-[#666]">
-                  {new Date(file.lastModified).toLocaleDateString('tr-TR')}
+                <div className={`text-[11px] ${isUnused ? 'text-emerald-500' : 'text-[#666]'}`}>
+                  {isUnused ? `${daysSinceAccess} gün önce` : new Date(file.lastModified).toLocaleDateString('tr-TR')}
                 </div>
                 <div className="text-[9px] text-[#888] bg-[#1e1e1e] px-1.5 py-0.5 rounded text-center truncate">{ext}</div>
               </div>

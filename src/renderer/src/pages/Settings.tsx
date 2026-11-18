@@ -9,6 +9,7 @@ export function Settings() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [newPath, setNewPath] = useState('')
+  const [newPattern, setNewPattern] = useState('')
 
   const update = (patch: Partial<AppSettings>) =>
     setLocal((prev) => ({ ...prev, ...patch }))
@@ -99,6 +100,7 @@ export function Settings() {
       {/* Exclusion patterns */}
       <section className="mb-6">
         <div className="text-[10px] font-bold text-[#666] uppercase mb-3">Dışlama Kuralları</div>
+        <div className="text-[9px] text-[#555] mb-2">Bu klasörler ve dosya desenleri taramaya dahil edilmez (bağımlılıklar, derleme çıktıları vb.)</div>
         <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-4 space-y-2">
           {local.scanConfig.excludePatterns.map((p, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -113,6 +115,36 @@ export function Settings() {
               </button>
             </div>
           ))}
+          <div className="flex gap-2 pt-1">
+            <input
+              type="text"
+              value={newPattern}
+              onChange={(e) => setNewPattern(e.target.value)}
+              placeholder="**/vendor/**"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = newPattern.trim()
+                  if (val && !local.scanConfig.excludePatterns.includes(val)) {
+                    updateScanConfig({ excludePatterns: [...local.scanConfig.excludePatterns, val] })
+                    setNewPattern('')
+                  }
+                }
+              }}
+              className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-white rounded px-3 py-1.5 outline-none focus:border-blue-500 font-mono"
+            />
+            <button
+              onClick={() => {
+                const val = newPattern.trim()
+                if (val && !local.scanConfig.excludePatterns.includes(val)) {
+                  updateScanConfig({ excludePatterns: [...local.scanConfig.excludePatterns, val] })
+                  setNewPattern('')
+                }
+              }}
+              className="px-3 py-1.5 bg-[#1e3a5f] text-blue-400 rounded text-[10px] hover:brightness-125 transition"
+            >
+              Ekle
+            </button>
+          </div>
         </div>
       </section>
 

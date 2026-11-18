@@ -7,12 +7,14 @@ import type { ScannedFile, Category } from '../../src/renderer/src/types'
 
 const SYSTEM_DIRS = new Set(['/System', '/Library', '/usr', '/bin', '/sbin', '/private'])
 
-export function shouldSkip(name: string, excludePatterns: string[], includeHidden = false): boolean {
+export function shouldSkip(name: string, fullPath: string, excludePatterns: string[], includeHidden = false): boolean {
   if (!includeHidden && name.startsWith('.')) return true
   return excludePatterns.some((p) => {
-    // Match the bare name against the stripped pattern (e.g. node_modules/** → node_modules)
     const stripped = p.replace(/^\*\*\//, '').replace(/\/\*\*$/, '')
-    return minimatch(name, stripped) || minimatch(name, p)
+    // Single-level pattern (e.g. node_modules) → match by name only
+    if (!stripped.includes('/')) return minimatch(name, stripped)
+    // Multi-level pattern (e.g. **/Library/Caches/**) → match against full path
+    return minimatch(fullPath, p)
   })
 }
 
@@ -40,8 +42,8 @@ export async function scanDirectory(
     try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
 
     for (const entry of entries) {
-      if (shouldSkip(entry.name, opts.excludePatterns, opts.includeHidden)) continue
       const full = join(dir, entry.name)
+      if (shouldSkip(entry.name, full, opts.excludePatterns, opts.includeHidden)) continue
       if (entry.isFile()) {
         try {
           const s = statSync(full)
@@ -54,7 +56,7 @@ export async function scanDirectory(
             created: s.birthtimeMs,
             category: categorize(entry.name, dir),
           })
-          if (results.length % 100 === 0) {
+          if (results.length % 50 === 0) {
             parentPort?.postMessage({ type: 'progress', scanned: results.length, currentPath: full })
           }
         } catch { /* skip unreadable */ }
@@ -65,6 +67,7 @@ export async function scanDirectory(
   }
 
   walk(rootPath)
+  parentPort?.postMessage({ type: 'progress', scanned: results.length, currentPath: rootPath })
   return results
 }
 

@@ -29,8 +29,10 @@ export function registerScannerIpc(win: BrowserWindow): void {
 
       scannerPool!.on('message', (msg) => {
         if (msg.type === 'progress') {
+          console.log('[scanner] progress msg:', msg.scanned, msg.currentPath?.slice(-40))
           safeSend('scan:progress', { phase: 'scanning', ...msg })
         } else if (msg.type === 'result') {
+          console.log('[scanner] result: total files =', msg.files?.length)
           scannedFiles = msg.files
         }
       })

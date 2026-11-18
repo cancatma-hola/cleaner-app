@@ -5,6 +5,26 @@ import { useAppStore } from '../store/app.store'
 import { useTrash } from '../hooks/useTrash'
 import type { DuplicateGroup } from '../types'
 
+function isRiskyPath(filePath: string): boolean {
+  const parts = filePath.split('/')
+  return (
+    parts.some((part) =>
+      /^Pods/.test(part) ||        // Pods, Pods-Core-prebuilt, Pods-External…
+      part === 'DerivedData' ||
+      part === 'CocoaPods' ||
+      part === 'xcuserdata' ||
+      part === 'node_modules' ||
+      part === 'CoreSimulator'
+    ) || filePath.includes('/Library/Developer/')
+  )
+}
+
+const UNUSED_DAYS_OPTIONS = [
+  { label: '30+ gün', value: 30 },
+  { label: '90+ gün', value: 90 },
+  { label: '180+ gün', value: 180 },
+]
+
 const MIN_WASTED_OPTIONS = [
   { label: 'Tümü', value: 0 },
   { label: '10MB+', value: 10 * 1e6 },
@@ -13,10 +33,12 @@ const MIN_WASTED_OPTIONS = [
 ]
 
 export function Duplicates() {
-  const { scanResult, selectedPaths, toggleSelect, trashProgress } = useAppStore()
+  const { scanResult, selectedPaths, toggleSelect, selectPaths, deselectPaths, trashProgress } = useAppStore()
   const { trashSelected } = useTrash()
   const [minWasted, setMinWasted] = useState(0)
   const [sortBy, setSortBy] = useState<'wasted' | 'count' | 'size'>('wasted')
+  const [hideDependencies, setHideDependencies] = useState(false)
+  const [unusedDays, setUnusedDays] = useState<number | null>(null)
 
   if (!scanResult) {
     return (
@@ -26,7 +48,18 @@ export function Duplicates() {
     )
   }
 
+  const now = Date.now()
+
+  const isCopyUnused = (f: { isOriginal?: boolean; lastAccessed: number }) =>
+    !f.isOriginal && unusedDays !== null && (now - f.lastAccessed) / 86400000 >= unusedDays
+
   let groups = scanResult.duplicates.filter((g) => g.wastedBytes >= minWasted)
+  if (hideDependencies) {
+    groups = groups.filter((g) => g.files.some((f) => !f.isOriginal && !isRiskyPath(f.path)))
+  }
+  if (unusedDays !== null) {
+    groups = groups.filter((g) => g.files.some((f) => isCopyUnused(f)))
+  }
   groups = [...groups].sort((a, b) => {
     if (sortBy === 'wasted') return b.wastedBytes - a.wastedBytes
     if (sortBy === 'count') return b.files.length - a.files.length
@@ -35,12 +68,27 @@ export function Duplicates() {
 
   const totalWasted = groups.reduce((s, g) => s + g.wastedBytes, 0)
 
+  const allCopyPaths = groups.flatMap((g) => g.files.filter((f) => !f.isOriginal).map((f) => f.path))
+  const allSelected = allCopyPaths.length > 0 && allCopyPaths.every((p) => selectedPaths.has(p))
+
+  const unusedCopyPaths = groups.flatMap((g) => g.files.filter((f) => isCopyUnused(f)).map((f) => f.path))
+  const allUnusedSelected = unusedCopyPaths.length > 0 && unusedCopyPaths.every((p) => selectedPaths.has(p))
+
   const selectGroup = (group: DuplicateGroup) => {
-    group.files.filter((f) => !f.isOriginal).forEach((f) => toggleSelect(f.path))
+    const paths = group.files.filter((f) => !f.isOriginal).map((f) => f.path)
+    const groupAllSelected = paths.every((p) => selectedPaths.has(p))
+    if (groupAllSelected) deselectPaths(paths)
+    else selectPaths(paths)
   }
 
-  const selectAllDuplicates = () => {
-    groups.flatMap((g) => g.files.filter((f) => !f.isOriginal)).forEach((f) => toggleSelect(f.path))
+  const toggleSelectAll = () => {
+    if (allSelected) deselectPaths(allCopyPaths)
+    else selectPaths(allCopyPaths)
+  }
+
+  const toggleSelectUnused = () => {
+    if (allUnusedSelected) deselectPaths(unusedCopyPaths)
+    else selectPaths(unusedCopyPaths)
   }
 
   return (
@@ -71,6 +119,25 @@ export function Duplicates() {
             ))}
           </div>
         </div>
+        <button
+          onClick={() => setHideDependencies((v) => !v)}
+          className={`px-2 py-0.5 rounded text-[10px] transition border ${hideDependencies ? 'bg-amber-900/40 text-amber-400 border-amber-700/40' : 'bg-[#1e1e1e] text-[#666] border-transparent hover:text-white'}`}
+        >
+          {hideDependencies ? '⚠ Bağımlılıklar gizli' : '⚠ Bağımlılıkları gizle'}
+        </button>
+        {/* Unused days filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] text-[#555] uppercase tracking-wider">Kullanılmayan</span>
+          {UNUSED_DAYS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setUnusedDays(unusedDays === opt.value ? null : opt.value)}
+              className={`px-2 py-0.5 rounded text-[10px] transition ${unusedDays === opt.value ? 'bg-[#1e3a2a] text-emerald-400' : 'bg-[#1e1e1e] text-[#666] hover:text-white'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         {/* Sort */}
         <div className="flex items-center gap-1.5">
@@ -87,12 +154,20 @@ export function Duplicates() {
             ))}
           </div>
         </div>
-        {groups.length > 0 && (
+        {unusedDays !== null && unusedCopyPaths.length > 0 && (
           <button
-            onClick={selectAllDuplicates}
-            className="px-2 py-0.5 bg-[#1e1e1e] text-[#888] hover:text-white rounded text-[10px] transition"
+            onClick={toggleSelectUnused}
+            className={`px-2 py-0.5 rounded text-[10px] transition ${allUnusedSelected ? 'bg-[#1e3a2a] text-emerald-400 hover:brightness-125' : 'bg-[#1e1e1e] text-[#888] hover:text-white'}`}
           >
-            Tüm Kopyaları Seç
+            {allUnusedSelected ? 'Seçimi Kaldır' : `Kullanılmayanları Seç (${unusedCopyPaths.length})`}
+          </button>
+        )}
+        {allCopyPaths.length > 0 && (
+          <button
+            onClick={toggleSelectAll}
+            className={`px-2 py-0.5 rounded text-[10px] transition ${allSelected ? 'bg-[#2d1f4e] text-violet-400 hover:brightness-125' : 'bg-[#1e1e1e] text-[#888] hover:text-white'}`}
+          >
+            {allSelected ? 'Seçimi Kaldır' : 'Tüm Kopyaları Seç'}
           </button>
         )}
       </div>
@@ -122,7 +197,8 @@ export function Duplicates() {
             </div>
             {group.files.map((file) => {
               const isSelected = selectedPaths.has(file.path)
-              const daysSince = Math.round((Date.now() - file.lastAccessed) / 86400000)
+              const daysSince = Math.round((now - file.lastAccessed) / 86400000)
+              const isUnused = isCopyUnused(file)
               return (
                 <div
                   key={file.path}
@@ -148,8 +224,16 @@ export function Duplicates() {
                       {file.path.replace('/' + file.name, '')}
                     </div>
                   </div>
-                  <div className="text-[9px] text-[#666] shrink-0">{daysSince} gün önce erişildi</div>
+                  <div className={`text-[9px] shrink-0 ${isUnused ? 'text-emerald-500' : 'text-[#666]'}`}>{daysSince} gün önce erişildi</div>
                   <div className="text-[10px] text-[#888] shrink-0">{formatBytes(file.size)}</div>
+                  {isRiskyPath(file.path) && (
+                    <span
+                      className="text-[9px] bg-amber-900/40 text-amber-400 border border-amber-700/40 px-1.5 py-0.5 rounded shrink-0"
+                      title="Bu dosya bir bağımlılık veya derleme dizininde — silmeden önce dikkatli olun"
+                    >
+                      ⚠ Bağımlılık
+                    </span>
+                  )}
                   {file.isOriginal
                     ? <span className="text-[9px] bg-[#0d2a1e] text-emerald-400 px-1.5 py-0.5 rounded shrink-0">Orijinal</span>
                     : <span className="text-[9px] bg-[#1e1e1e] text-[#888] px-1.5 py-0.5 rounded shrink-0">Kopya</span>

@@ -8,6 +8,7 @@ export function useScan() {
 
   useEffect(() => {
     window.cleaner.onProgress((p: unknown) => {
+      console.log('[useScan] onProgress:', p)
       setScanProgress(p as ScanProgress)
     })
     return () => { window.cleaner.offProgress() }
